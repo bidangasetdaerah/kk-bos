@@ -22,7 +22,8 @@
   <div class="bg-white shadow-md rounded-lg p-4 sm:p-6 w-full overflow-x-auto">
     
     <!-- Info jumlah dokumen -->
-    <p id="infoJumlah" class="mb-4 text-sm font-medium text-gray-700"></p>
+    <p id="infoJumlah" class="mb-2 text-sm font-medium text-gray-700"></p>
+    <div id="infoKecamatan" class="mb-4 text-sm text-gray-700 space-y-2"></div>
 
     <!-- Filter -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
@@ -187,10 +188,36 @@ function renderTable() {
   document.getElementById('prevBtn').disabled = currentPage === 1;
   document.getElementById('nextBtn').disabled = currentPage === totalPages;
 
-  // update jumlah dokumen terisi
+  // update jumlah dokumen terisi total
   const totalUpload = allData.filter(d => d.dokumen && d.dokumen.startsWith("http")).length;
   document.getElementById('infoJumlah').textContent = 
     `Jumlah dokumen terisi: ${totalUpload} dari ${allData.length} sekolah`;
+
+  // hitung progres per kecamatan
+  const kecamatanStat = {};
+  allData.forEach(d => {
+    if (!kecamatanStat[d.kecamatan]) kecamatanStat[d.kecamatan] = { total: 0, terisi: 0 };
+    kecamatanStat[d.kecamatan].total++;
+    if (d.dokumen && d.dokumen.startsWith("http")) kecamatanStat[d.kecamatan].terisi++;
+  });
+
+  // tampilkan rekap
+  const infoKecamatanDiv = document.getElementById('infoKecamatan');
+  infoKecamatanDiv.innerHTML = Object.keys(kecamatanStat).sort().map(kec => {
+    const { total, terisi } = kecamatanStat[kec];
+    const persen = Math.round((terisi / total) * 100);
+    return `
+      <div>
+        <div class="flex justify-between items-center">
+          <span class="font-semibold">${kec}</span>
+          <span class="text-xs text-gray-600">${terisi} / ${total} (${persen}%)</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2 sm:h-3 mt-1">
+          <div class="bg-green-600 h-2 sm:h-3 rounded-full transition-all" style="width:${persen}%;"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function prevPage() { if (currentPage > 1) { currentPage--; renderTable(); } }
