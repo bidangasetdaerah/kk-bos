@@ -18,13 +18,17 @@
 <body class="bg-gray-100 min-h-screen flex flex-col items-center p-4 sm:p-6">
   <h1 class="text-2xl sm:text-3xl font-bold mb-6 text-center">Upload Dokumen Pendukung BOS 2025</h1>
 
-  
   <!-- Container Data -->
   <div class="bg-white shadow-md rounded-lg p-4 sm:p-6 w-full overflow-x-auto">
+    <!-- Filter -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
-      <input type="text" id="searchBox" placeholder="Cari sekolah..." 
+      <input type="text" id="searchBox" placeholder="Cari sekolah / jenjang / status..." 
         class="border rounded p-2 text-sm sm:text-base w-full sm:w-64" oninput="applyFilters()"/>
-            
+      
+      <select id="filterKecamatan" onchange="applyFilters()" 
+        class="border rounded p-2 text-sm sm:text-base w-full sm:w-64">
+        <option value="">-- Semua Kecamatan --</option>
+      </select>
     </div>
 
     <!-- Tabel Desktop -->
@@ -79,16 +83,6 @@ async function loadData() {
     allData = await res.json();
     filteredData = allData;
 
-    // isi dropdown satuan
-    const select = document.getElementById('satuan');
-    select.innerHTML = '<option value="">-- Pilih Satuan --</option>';
-    allData.forEach(item => {
-      const option = document.createElement('option');
-      option.value = item.namaSatuan;
-      option.textContent = `${item.namaSatuan} (${item.jenjang})`;
-      select.appendChild(option);
-    });
-
     // isi dropdown kecamatan (unik)
     const kecamatanSet = [...new Set(allData.map(d => d.kecamatan))].sort();
     const filterKecamatan = document.getElementById('filterKecamatan');
@@ -103,7 +97,6 @@ async function loadData() {
     renderTable();
   } catch (err) {
     console.error("Gagal load data:", err);
-    document.getElementById('status').textContent = "Gagal load data tabel.";
   }
 }
 
@@ -113,9 +106,13 @@ function applyFilters() {
   const kecamatan = document.getElementById('filterKecamatan').value;
 
   filteredData = allData.filter(d => {
-    const matchNama = d.namaSatuan.toLowerCase().includes(keyword);
+    const matchText = 
+      d.namaSatuan.toLowerCase().includes(keyword) ||
+      d.jenjang.toLowerCase().includes(keyword) ||
+      d.status.toLowerCase().includes(keyword);
+
     const matchKec = kecamatan ? d.kecamatan === kecamatan : true;
-    return matchNama && matchKec;
+    return matchText && matchKec;
   });
 
   currentPage = 1;
@@ -189,36 +186,6 @@ function renderTable() {
 
 function prevPage() { if (currentPage > 1) { currentPage--; renderTable(); } }
 function nextPage() { const totalPages = Math.ceil(filteredData.length / rowsPerPage); if (currentPage < totalPages) { currentPage++; renderTable(); } }
-
-// Upload Global
-async function uploadFile() {
-  const fileInput = document.getElementById('fileInput');
-  const satuan = document.getElementById('satuan').value;
-  const status = document.getElementById('status');
-  const btn = document.getElementById('btnGlobalUpload');
-
-  if (!fileInput.files.length) { alert("Pilih file terlebih dahulu!"); return; }
-  if (!satuan) { alert("Pilih satuan pendidikan!"); return; }
-
-  status.textContent = "Mengunggah...";
-  try {
-    const file = fileInput.files[0];
-    const base64 = await fileToBase64(file);
-    const payload = { action: "uploadFile", namaSatuan: satuan, base64: base64.split(',')[1], mimeType: file.type };
-
-    const res = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
-    const result = await res.json();
-
-    if (result.success) {
-      status.innerHTML = `Upload berhasil! <a href="${result.fileUrl}" target="_blank" class="text-blue-600 underline">Lihat file</a>`;
-      fileInput.disabled = true; btn.disabled = true;
-      btn.className = "bg-gray-400 text-white px-4 py-2 rounded w-full cursor-not-allowed";
-      const satuanData = allData.find(d => d.namaSatuan === satuan);
-      if (satuanData) satuanData.dokumen = result.fileUrl;
-      applyFilters();
-    } else status.textContent = "Gagal upload: " + result.message;
-  } catch (err) { console.error(err); status.textContent = "Terjadi kesalahan saat upload."; }
-}
 
 // Upload per sekolah
 async function uploadFileSekolah(namaSatuan) {
